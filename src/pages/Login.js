@@ -13,14 +13,13 @@ import {
     Grid,
     IconButton,
     InputAdornment,
-    Link,
     Paper,
     TextField,
     Typography,
 } from '@mui/material';
 import axios from 'axios';
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 // Create axios instance with base URL
 const api = axios.create({
@@ -220,16 +219,17 @@ const Login = () => {
                             <Grid item>
                                 <Link
                                     to="/register"
-                                    variant="body2"
-                                    sx={{
-                                        color: 'primary.main',
+                                    style={{
+                                        color: '#1976d2',
                                         textDecoration: 'none',
+                                        fontSize: '0.875rem',
+                                        fontWeight: 500,
                                         '&:hover': {
                                             textDecoration: 'underline',
                                         },
                                     }}
                                 >
-                                    {"Don't have an account? Sign Up"}
+                                    Don't have an account? Sign Up
                                 </Link>
                             </Grid>
                         </Grid>

@@ -215,21 +215,26 @@ const ChartBuilder = () => {
     let data = [...chartData];
 
     // Apply column filters
-    if (columnFilters.length > 0) {
+    if (Object.keys(columnFilters).length > 0) {
       data = data.filter(row => {
-        return columnFilters.every(filter => {
-          const value = row[filter.column];
-          return value && value.toString().toLowerCase().includes(filter.value.toLowerCase());
+        return Object.entries(columnFilters).every(([column, value]) => {
+          if (!value) return true; // Skip empty filters
+          const rowValue = row[column]?.toString().toLowerCase() || '';
+          return rowValue.includes(value.toLowerCase());
         });
       });
     }
 
     // Apply numeric range filters
-    if (filters.length > 0) {
+    if (Object.keys(filters).length > 0) {
       data = data.filter(row => {
-        return filters.every(filter => {
-          const value = Number(row[filter.column]);
-          return value >= filter.min && value <= filter.max;
+        return Object.entries(filters).every(([column, range]) => {
+          if (!range || (range.min === '' && range.max === '')) return true; // Skip empty filters
+          const value = Number(row[column]);
+          if (isNaN(value)) return true; // Skip non-numeric values
+          const min = range.min === '' ? -Infinity : Number(range.min);
+          const max = range.max === '' ? Infinity : Number(range.max);
+          return value >= min && value <= max;
         });
       });
     }
@@ -335,7 +340,7 @@ const ChartBuilder = () => {
       return (
         <Box
           sx={{
-            height: '50vh',
+            height: '70vh',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -353,9 +358,9 @@ const ChartBuilder = () => {
 
     const chartContainerStyle = {
       width: '100%',
-      height: '50vh',
-      minHeight: '400px',
-      maxHeight: '80vh',
+      height: '70vh',
+      minHeight: '500px',
+      maxHeight: '90vh',
       transform: `scale(${zoomLevel})`,
       transformOrigin: 'center center',
       transition: 'transform 0.3s ease-in-out',
@@ -363,13 +368,14 @@ const ChartBuilder = () => {
       borderRadius: '8px',
       boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
       padding: '20px',
+      position: 'relative',
     };
 
     const commonProps = {
       width: '100%',
       height: '100%',
       data: filteredData,
-      margin: { top: 30, right: 30, left: 50, bottom: 30 },
+      margin: { top: 40, right: 40, left: 60, bottom: 40 },
     };
 
     const renderZoomControls = () => (
@@ -399,22 +405,65 @@ const ChartBuilder = () => {
       </Box>
     );
 
+    const ChartTitleComponent = (
+      <Typography
+        variant="h5"
+        align="center"
+        sx={{ 
+          mb: 3, 
+          fontWeight: 'bold',
+          color: 'primary.main',
+          textTransform: 'uppercase',
+          letterSpacing: '1px'
+        }}
+      >
+        {chartTitle || 'Chart Title'}
+      </Typography>
+    );
+
     const renderChartContent = () => {
       switch (chartType) {
         case 'bar':
           return (
             <BarChart {...commonProps}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey={xColumn} />
-              <YAxis />
-              <RechartsTooltip />
-              <Legend />
+              <XAxis 
+                dataKey={xColumn} 
+                label={{ 
+                  value: xAxisLabel, 
+                  position: 'insideBottom', 
+                  offset: -10,
+                  style: { fontSize: '14px', fontWeight: 'bold' }
+                }}
+              />
+              <YAxis 
+                label={{ 
+                  value: yAxisLabel, 
+                  angle: -90, 
+                  position: 'insideLeft',
+                  style: { fontSize: '14px', fontWeight: 'bold' }
+                }}
+              />
+              <RechartsTooltip 
+                contentStyle={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  padding: '10px'
+                }}
+              />
+              <Legend 
+                wrapperStyle={{
+                  paddingTop: '20px'
+                }}
+              />
               {yColumns.map((column, index) => (
                 <Bar
                   key={column}
                   dataKey={column}
                   fill={COLORS[index % COLORS.length]}
                   name={column}
+                  radius={[4, 4, 0, 0]}
                 />
               ))}
             </BarChart>
@@ -423,8 +472,13 @@ const ChartBuilder = () => {
           return (
             <LineChart {...commonProps}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey={xColumn} />
-              <YAxis />
+              <XAxis 
+                dataKey={xColumn} 
+                label={{ value: xAxisLabel, position: 'insideBottom', offset: -10 }}
+              />
+              <YAxis 
+                label={{ value: yAxisLabel, angle: -90, position: 'insideLeft' }}
+              />
               <RechartsTooltip />
               <Legend />
               {yColumns.map((column, index) => (
@@ -448,14 +502,37 @@ const ChartBuilder = () => {
                 cx="50%"
                 cy="50%"
                 outerRadius={150}
-                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                label={({ name, percent }) => {
+                  const percentage = (percent * 100).toFixed(1);
+                  return `${name}: ${percentage}%`;
+                }}
+                labelLine={true}
+                labelLineStyle={{ strokeWidth: 1 }}
+                labelStyle={{
+                  fontSize: '12px',
+                  fill: '#333',
+                  fontWeight: 'bold',
+                }}
+                paddingAngle={2}
               >
                 {filteredData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-              <RechartsTooltip />
-              <Legend />
+              <RechartsTooltip 
+                formatter={(value, name, props) => {
+                  const percentage = ((value / props.payload.total) * 100).toFixed(1);
+                  return [`${name}: ${value} (${percentage}%)`, name];
+                }}
+              />
+              <Legend 
+                layout="vertical" 
+                verticalAlign="middle" 
+                align="right"
+                wrapperStyle={{
+                  paddingLeft: '20px'
+                }}
+              />
             </PieChart>
           );
         case 'donut':
@@ -469,14 +546,37 @@ const ChartBuilder = () => {
                 cy="50%"
                 innerRadius={60}
                 outerRadius={150}
-                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                label={({ name, percent }) => {
+                  const percentage = (percent * 100).toFixed(1);
+                  return `${name}: ${percentage}%`;
+                }}
+                labelLine={true}
+                labelLineStyle={{ strokeWidth: 1 }}
+                labelStyle={{
+                  fontSize: '12px',
+                  fill: '#333',
+                  fontWeight: 'bold',
+                }}
+                paddingAngle={2}
               >
                 {filteredData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-              <RechartsTooltip />
-              <Legend />
+              <RechartsTooltip 
+                formatter={(value, name, props) => {
+                  const percentage = ((value / props.payload.total) * 100).toFixed(1);
+                  return [`${name}: ${value} (${percentage}%)`, name];
+                }}
+              />
+              <Legend 
+                layout="vertical" 
+                verticalAlign="middle" 
+                align="right"
+                wrapperStyle={{
+                  paddingLeft: '20px'
+                }}
+              />
             </PieChart>
           );
         case 'radar':
@@ -503,8 +603,13 @@ const ChartBuilder = () => {
           return (
             <AreaChart {...commonProps}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey={xColumn} />
-              <YAxis />
+              <XAxis 
+                dataKey={xColumn} 
+                label={{ value: xAxisLabel, position: 'insideBottom', offset: -10 }}
+              />
+              <YAxis 
+                label={{ value: yAxisLabel, angle: -90, position: 'insideLeft' }}
+              />
               <RechartsTooltip />
               <Legend />
               {yColumns.map((column, index) => (
@@ -524,9 +629,18 @@ const ChartBuilder = () => {
           return (
             <ScatterChart {...commonProps}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey={xColumn} />
-              <YAxis />
-              <RechartsTooltip />
+              <XAxis 
+                dataKey={xColumn} 
+                label={{ value: xAxisLabel, position: 'insideBottom', offset: -10 }}
+              />
+              <YAxis 
+                label={{ value: yAxisLabel, angle: -90, position: 'insideLeft' }}
+              />
+              <RechartsTooltip 
+                formatter={(value, name, props) => {
+                  return [`${name}: ${value}`, name];
+                }}
+              />
               <Legend />
               {yColumns.map((column, index) => (
                 <Scatter
@@ -534,6 +648,7 @@ const ChartBuilder = () => {
                   name={column}
                   data={filteredData}
                   fill={COLORS[index % COLORS.length]}
+                  dataKey={column}
                 />
               ))}
             </ScatterChart>
@@ -555,8 +670,13 @@ const ChartBuilder = () => {
           return (
             <ComposedChart {...commonProps}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey={xColumn} />
-              <YAxis />
+              <XAxis 
+                dataKey={xColumn} 
+                label={{ value: xAxisLabel, position: 'insideBottom', offset: -10 }}
+              />
+              <YAxis 
+                label={{ value: yAxisLabel, angle: -90, position: 'insideLeft' }}
+              />
               <RechartsTooltip />
               <Legend />
               {yColumns.map((column, index) => (
@@ -582,18 +702,45 @@ const ChartBuilder = () => {
     };
 
     return (
-      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ 
+        height: '100%', 
+        display: 'flex', 
+        flexDirection: 'column',
+        width: '100%',
+        maxWidth: '100%',
+        overflow: 'hidden'
+      }}>
         {renderZoomControls()}
         <Box sx={{
           ...chartContainerStyle,
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          width: '100%',
+          maxWidth: '100%',
+          mx: 'auto'
         }}>
-          <ResponsiveContainer width="100%" height="100%">
-            {renderChartContent()}
-          </ResponsiveContainer>
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            height: '100%', 
+            width: '100%',
+            maxWidth: '100%'
+          }}>
+            {ChartTitleComponent}
+            <Box sx={{ 
+              flex: 1, 
+              width: '100%', 
+              height: '100%', 
+              position: 'relative',
+              maxWidth: '100%'
+            }}>
+              <ResponsiveContainer width="100%" height="100%">
+                {renderChartContent()}
+              </ResponsiveContainer>
+            </Box>
+          </Box>
         </Box>
       </Box>
     );
@@ -653,9 +800,9 @@ const ChartBuilder = () => {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+    <Container maxWidth={false} sx={{ mt: 4, mb: 4, px: 0 }}>
       <Grid container spacing={3}>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={3}>
           <Paper sx={{ p: 3, height: '100%' }}>
             <Typography variant="h5" gutterBottom>
               Chart Builder
@@ -754,7 +901,7 @@ const ChartBuilder = () => {
           </Paper>
         </Grid>
 
-        <Grid item xs={12} md={8}>
+        <Grid item xs={12} md={9}>
           <Paper sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ mb: 2 }}>
               <Typography variant="h6" gutterBottom>

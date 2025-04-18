@@ -304,10 +304,11 @@ const Register = () => {
                             <Grid item>
                                 <Link
                                     to="/login"
-                                    variant="body2"
-                                    sx={{
-                                        color: 'primary.main',
+                                    style={{
+                                        color: '#1976d2',
                                         textDecoration: 'none',
+                                        fontSize: '0.875rem',
+                                        fontWeight: 500,
                                         '&:hover': {
                                             textDecoration: 'underline',
                                         },
