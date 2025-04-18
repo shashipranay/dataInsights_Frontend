@@ -23,7 +23,7 @@ import { Link, useNavigate } from 'react-router-dom';
 
 // Create axios instance with base URL
 const api = axios.create({
-    baseURL: process.env.REACT_APP_API_URL,
+    baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000',
     headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
@@ -35,6 +35,10 @@ const api = axios.create({
 // Add request interceptor for logging
 api.interceptors.request.use(
     (config) => {
+        // Remove any double slashes or https:// from the URL
+        config.url = config.url.replace(/([^:]\/)\/+/g, '$1');
+        config.baseURL = config.baseURL.replace(/([^:]\/)\/+/g, '$1');
+        
         console.log('Making request to:', config.baseURL + config.url, 'with headers:', config.headers);
         return config;
     },
