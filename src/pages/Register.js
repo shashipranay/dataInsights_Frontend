@@ -30,7 +30,30 @@ const api = axios.create({
     headers: {
         'Content-Type': 'application/json',
     },
+    timeout: 10000, // 10 second timeout
 });
+
+// Add response interceptor for better error handling
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        console.error('API Error:', error);
+        if (error.response) {
+            // The request was made and the server responded with a status code
+            // that falls out of the range of 2xx
+            console.error('Error Response:', error.response.data);
+            return Promise.reject(error.response.data);
+        } else if (error.request) {
+            // The request was made but no response was received
+            console.error('No Response:', error.request);
+            return Promise.reject({ message: 'No response from server. Please check if the server is running.' });
+        } else {
+            // Something happened in setting up the request that triggered an Error
+            console.error('Error Message:', error.message);
+            return Promise.reject({ message: error.message });
+        }
+    }
+);
 
 const Register = () => {
     const [formData, setFormData] = useState({

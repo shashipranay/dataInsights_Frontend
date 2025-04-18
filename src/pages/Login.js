@@ -23,11 +23,56 @@ import { Link, useNavigate } from 'react-router-dom';
 
 // Create axios instance with base URL
 const api = axios.create({
-    baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
+    baseURL: process.env.NODE_ENV === 'production'
+        ? 'https://data-insights-backend-ten.vercel.app/api'
+        : 'http://localhost:5000/api',
     headers: {
         'Content-Type': 'application/json',
     },
+    timeout: 10000, // 10 second timeout
+    withCredentials: true // Enable credentials
 });
+
+// Add request interceptor for logging
+api.interceptors.request.use(
+    (config) => {
+        console.log('Making request to:', config.url);
+        return config;
+    },
+    (error) => {
+        console.error('Request error:', error);
+        return Promise.reject(error);
+    }
+);
+
+// Add response interceptor for better error handling
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        console.error('API Error:', {
+            message: error.message,
+            response: error.response?.data,
+            status: error.response?.status,
+            config: {
+                url: error.config?.url,
+                baseURL: error.config?.baseURL,
+                method: error.config?.method
+            }
+        });
+        
+        if (error.response) {
+            return Promise.reject(error.response.data);
+        } else if (error.request) {
+            return Promise.reject({ 
+                message: 'No response from server. Please check if the server is running.' 
+            });
+        } else {
+            return Promise.reject({ 
+                message: error.message || 'Error setting up request' 
+            });
+        }
+    }
+);
 
 const Login = () => {
     const [formData, setFormData] = useState({
@@ -54,7 +99,7 @@ const Login = () => {
         setLoading(true);
 
         try {
-            console.log('Attempting to login...');
+            console.log('Attempting to login with:', { email, password: '***' });
             const response = await api.post('/auth/login', {
                 email,
                 password,
@@ -65,18 +110,32 @@ const Login = () => {
             if (response.data.token) {
                 localStorage.setItem('token', response.data.token);
                 navigate('/dashboard');
+            } else {
+                setError('Invalid response from server');
             }
         } catch (error) {
-            console.error('Login error:', error);
+            console.error('Login error details:', {
+                message: error.message,
+                response: error.response?.data,
+                status: error.response?.status,
+                config: {
+                    url: error.config?.url,
+                    method: error.config?.method,
+                    headers: error.config?.headers,
+                }
+            });
+
             if (error.response) {
-                console.error('Error response:', error.response.data);
+                // Server responded with error status
                 setError(error.response.data.message || 'Login failed');
             } else if (error.request) {
-                console.error('No response received:', error.request);
-                setError('No response from server. Please check if the server is running.');
+                // Request was made but no response received
+                console.error('No response received. Server might be down or unreachable.');
+                setError('Unable to connect to server. Please try again later.');
             } else {
-                console.error('Error setting up request:', error.message);
-                setError('Error setting up login request');
+                // Error in request setup
+                console.error('Request setup error:', error.message);
+                setError('Error setting up login request: ' + error.message);
             }
         } finally {
             setLoading(false);
