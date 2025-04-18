@@ -28,15 +28,16 @@ const api = axios.create({
         : 'http://localhost:5000/api',
     headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json'
     },
     timeout: 10000, // 10 second timeout
-    withCredentials: true // Enable credentials
+    withCredentials: true
 });
 
 // Add request interceptor for logging
 api.interceptors.request.use(
     (config) => {
-        console.log('Making request to:', config.url);
+        console.log('Making request to:', config.url, 'with headers:', config.headers);
         return config;
     },
     (error) => {
