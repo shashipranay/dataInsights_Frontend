@@ -23,9 +23,7 @@ import { Link, useNavigate } from 'react-router-dom';
 
 // Create axios instance with base URL
 const api = axios.create({
-    baseURL: process.env.NODE_ENV === 'production'
-        ? 'https://data-insights-backend-ten.vercel.app/api'
-        : 'http://localhost:5000/api',
+    baseURL: process.env.REACT_APP_API_URL,
     headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
@@ -37,7 +35,7 @@ const api = axios.create({
 // Add request interceptor for logging
 api.interceptors.request.use(
     (config) => {
-        console.log('Making request to:', config.url, 'with headers:', config.headers);
+        console.log('Making request to:', config.baseURL + config.url, 'with headers:', config.headers);
         return config;
     },
     (error) => {
@@ -101,7 +99,7 @@ const Login = () => {
 
         try {
             console.log('Attempting to login with:', { email, password: '***' });
-            const response = await api.post('/auth/login', {
+            const response = await api.post('/api/auth/login', {
                 email,
                 password,
             });
@@ -121,21 +119,16 @@ const Login = () => {
                 status: error.response?.status,
                 config: {
                     url: error.config?.url,
-                    method: error.config?.method,
-                    headers: error.config?.headers,
+                    baseURL: error.config?.baseURL,
+                    method: error.config?.method
                 }
             });
 
             if (error.response) {
-                // Server responded with error status
                 setError(error.response.data.message || 'Login failed');
             } else if (error.request) {
-                // Request was made but no response received
-                console.error('No response received. Server might be down or unreachable.');
                 setError('Unable to connect to server. Please try again later.');
             } else {
-                // Error in request setup
-                console.error('Request setup error:', error.message);
                 setError('Error setting up login request: ' + error.message);
             }
         } finally {
