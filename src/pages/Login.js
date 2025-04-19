@@ -23,7 +23,7 @@ import { Link, useNavigate } from 'react-router-dom';
 
 // Create axios instance with base URL
 const api = axios.create({
-    baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000',
+    baseURL: 'https://data-insights-backend-ten.vercel.app',
     headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
@@ -35,11 +35,15 @@ const api = axios.create({
 // Add request interceptor for logging
 api.interceptors.request.use(
     (config) => {
-        // Remove any double slashes or https:// from the URL
-        config.url = config.url.replace(/([^:]\/)\/+/g, '$1');
-        config.baseURL = config.baseURL.replace(/([^:]\/)\/+/g, '$1');
-        
-        console.log('Making request to:', config.baseURL + config.url, 'with headers:', config.headers);
+        // Log the full URL being used
+        const fullUrl = `${config.baseURL}${config.url}`;
+        console.log('Full request URL:', fullUrl);
+        console.log('Request config:', {
+            baseURL: config.baseURL,
+            url: config.url,
+            method: config.method,
+            headers: config.headers
+        });
         return config;
     },
     (error) => {
@@ -50,7 +54,10 @@ api.interceptors.request.use(
 
 // Add response interceptor for better error handling
 api.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        console.log('Response received:', response);
+        return response;
+    },
     (error) => {
         console.error('API Error:', {
             message: error.message,

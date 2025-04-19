@@ -26,31 +26,64 @@ import { useNavigate } from 'react-router-dom';
 
 // Create axios instance with base URL
 const api = axios.create({
-    baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
+    baseURL: 'https://data-insights-backend-ten.vercel.app',
     headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json'
     },
     timeout: 10000, // 10 second timeout
+    withCredentials: true
 });
+
+// Add request interceptor for logging
+api.interceptors.request.use(
+    (config) => {
+        // Log the full URL being used
+        const fullUrl = `${config.baseURL}${config.url}`;
+        console.log('Full request URL:', fullUrl);
+        console.log('Request config:', {
+            baseURL: config.baseURL,
+            url: config.url,
+            method: config.method,
+            headers: config.headers,
+            data: config.data
+        });
+        return config;
+    },
+    (error) => {
+        console.error('Request error:', error);
+        return Promise.reject(error);
+    }
+);
 
 // Add response interceptor for better error handling
 api.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        console.log('Response received:', response);
+        return response;
+    },
     (error) => {
-        console.error('API Error:', error);
+        console.error('API Error:', {
+            message: error.message,
+            response: error.response?.data,
+            status: error.response?.status,
+            config: {
+                url: error.config?.url,
+                baseURL: error.config?.baseURL,
+                method: error.config?.method
+            }
+        });
+        
         if (error.response) {
-            // The request was made and the server responded with a status code
-            // that falls out of the range of 2xx
-            console.error('Error Response:', error.response.data);
             return Promise.reject(error.response.data);
         } else if (error.request) {
-            // The request was made but no response was received
-            console.error('No Response:', error.request);
-            return Promise.reject({ message: 'No response from server. Please check if the server is running.' });
+            return Promise.reject({ 
+                message: 'No response from server. Please check if the server is running.' 
+            });
         } else {
-            // Something happened in setting up the request that triggered an Error
-            console.error('Error Message:', error.message);
-            return Promise.reject({ message: error.message });
+            return Promise.reject({ 
+                message: error.message || 'Error setting up request' 
+            });
         }
     }
 );
@@ -103,8 +136,8 @@ const Register = () => {
         }
 
         try {
-            console.log('Attempting to register user...');
-            const response = await api.post('/auth/register', {
+            console.log('Attempting to register user with:', { name, email, password: '***' });
+            const response = await api.post('/api/auth/register', {
                 name,
                 email,
                 password,
