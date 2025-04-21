@@ -1,3 +1,9 @@
+import {
+    ExpandLess as ExpandLessIcon,
+    ExpandMore as ExpandMoreIcon,
+    Lightbulb as LightbulbIcon,
+    Send as SendIcon
+} from '@mui/icons-material';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
 import ClearIcon from '@mui/icons-material/Clear';
 import FilterListIcon from '@mui/icons-material/FilterList';
@@ -5,59 +11,63 @@ import ResetIcon from '@mui/icons-material/Refresh';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import {
-  Box,
-  Button,
-  Checkbox,
-  Chip,
-  Container,
-  FormControl,
-  Grid,
-  IconButton,
-  InputLabel,
-  MenuItem,
-  Paper,
-  Select,
-  Tab,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Tabs,
-  TextField,
-  Tooltip,
-  Typography
+    Box,
+    Button,
+    Checkbox,
+    Chip,
+    CircularProgress,
+    Collapse,
+    Container,
+    Divider,
+    FormControl,
+    Grid,
+    IconButton,
+    InputLabel,
+    MenuItem,
+    Paper,
+    Select,
+    Stack,
+    Tab,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    Tabs,
+    TextField,
+    Tooltip,
+    Typography
 } from '@mui/material';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  ComposedChart,
-  Legend,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  PolarAngleAxis,
-  PolarGrid,
-  PolarRadiusAxis,
-  Radar,
-  RadarChart,
-  RadialBar,
-  RadialBarChart,
-  Tooltip as RechartsTooltip,
-  ResponsiveContainer,
-  Scatter,
-  ScatterChart,
-  XAxis,
-  YAxis
+    Area,
+    AreaChart,
+    Bar,
+    BarChart,
+    CartesianGrid,
+    Cell,
+    ComposedChart,
+    Legend,
+    Line,
+    LineChart,
+    Pie,
+    PieChart,
+    PolarAngleAxis,
+    PolarGrid,
+    PolarRadiusAxis,
+    Radar,
+    RadarChart,
+    RadialBar,
+    RadialBarChart,
+    ResponsiveContainer,
+    Scatter,
+    ScatterChart,
+    XAxis,
+    YAxis
 } from 'recharts';
 import * as XLSX from 'xlsx';
+import aiService from '../services/aiService';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658'];
 
@@ -83,6 +93,21 @@ const ChartBuilder = () => {
   const [selectedRows, setSelectedRows] = useState([]);
   const [columnFilters, setColumnFilters] = useState({});
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [loading, setLoading] = useState(false);
+  const [insights, setInsights] = useState('');
+  const [error, setError] = useState('');
+  const [showInsights, setShowInsights] = useState(false);
+  const [customPrompt, setCustomPrompt] = useState('');
+  const [promptHistory, setPromptHistory] = useState([]);
+  const [selectedPromptType, setSelectedPromptType] = useState('insights');
+
+  const promptTemplates = {
+    insights: 'Analyze this {chartType} chart data and provide key insights and trends.',
+    correlation: 'Find correlations and relationships in this {chartType} chart data.',
+    prediction: 'Based on this {chartType} chart data, what predictions can be made?',
+    comparison: 'Compare and contrast the different data points in this {chartType} chart.',
+    summary: 'Provide a detailed summary of this {chartType} chart data.'
+  };
 
   const calculateStatsForColumn = useCallback((data, column) => {
     if (!data || !column) return null;
@@ -276,6 +301,42 @@ const ChartBuilder = () => {
     }));
   };
 
+  const handleGetInsights = async (promptType = 'insights', customPromptText = '') => {
+    setLoading(true);
+    setError('');
+    try {
+      let prompt;
+      if (customPromptText) {
+        prompt = customPromptText;
+      } else {
+        prompt = promptTemplates[promptType].replace('{chartType}', chartType);
+      }
+      
+      const response = await aiService.getChartInsights(chartData, chartType, prompt);
+      const insightText = response.candidates[0].content.parts[0].text;
+      setInsights(insightText);
+      
+      // Add to prompt history
+      setPromptHistory(prev => [
+        { prompt, response: insightText, type: promptType },
+        ...prev.slice(0, 4) // Keep only last 5 items
+      ]);
+    } catch (err) {
+      setError('Failed to get AI insights. Please try again.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCustomPrompt = (e) => {
+    e.preventDefault();
+    if (customPrompt.trim()) {
+      handleGetInsights('custom', customPrompt);
+      setCustomPrompt('');
+    }
+  };
+
   const renderFilterControls = () => {
     if (!showFilters) return null;
 
@@ -444,19 +505,8 @@ const ChartBuilder = () => {
                   style: { fontSize: '14px', fontWeight: 'bold' }
                 }}
               />
-              <RechartsTooltip 
-                contentStyle={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                  border: '1px solid #ccc',
-                  borderRadius: '4px',
-                  padding: '10px'
-                }}
-              />
-              <Legend 
-                wrapperStyle={{
-                  paddingTop: '20px'
-                }}
-              />
+              <Tooltip />
+              <Legend />
               {yColumns.map((column, index) => (
                 <Bar
                   key={column}
@@ -479,7 +529,7 @@ const ChartBuilder = () => {
               <YAxis 
                 label={{ value: yAxisLabel, angle: -90, position: 'insideLeft' }}
               />
-              <RechartsTooltip />
+              <Tooltip />
               <Legend />
               {yColumns.map((column, index) => (
                 <Line
@@ -519,20 +569,8 @@ const ChartBuilder = () => {
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-              <RechartsTooltip 
-                formatter={(value, name, props) => {
-                  const percentage = ((value / props.payload.total) * 100).toFixed(1);
-                  return [`${name}: ${value} (${percentage}%)`, name];
-                }}
-              />
-              <Legend 
-                layout="vertical" 
-                verticalAlign="middle" 
-                align="right"
-                wrapperStyle={{
-                  paddingLeft: '20px'
-                }}
-              />
+              <Tooltip />
+              <Legend />
             </PieChart>
           );
         case 'donut':
@@ -563,20 +601,8 @@ const ChartBuilder = () => {
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-              <RechartsTooltip 
-                formatter={(value, name, props) => {
-                  const percentage = ((value / props.payload.total) * 100).toFixed(1);
-                  return [`${name}: ${value} (${percentage}%)`, name];
-                }}
-              />
-              <Legend 
-                layout="vertical" 
-                verticalAlign="middle" 
-                align="right"
-                wrapperStyle={{
-                  paddingLeft: '20px'
-                }}
-              />
+              <Tooltip />
+              <Legend />
             </PieChart>
           );
         case 'radar':
@@ -595,7 +621,7 @@ const ChartBuilder = () => {
                   fillOpacity={0.6}
                 />
               ))}
-              <RechartsTooltip />
+              <Tooltip />
               <Legend />
             </RadarChart>
           );
@@ -610,7 +636,7 @@ const ChartBuilder = () => {
               <YAxis 
                 label={{ value: yAxisLabel, angle: -90, position: 'insideLeft' }}
               />
-              <RechartsTooltip />
+              <Tooltip />
               <Legend />
               {yColumns.map((column, index) => (
                 <Area
@@ -636,11 +662,7 @@ const ChartBuilder = () => {
               <YAxis 
                 label={{ value: yAxisLabel, angle: -90, position: 'insideLeft' }}
               />
-              <RechartsTooltip 
-                formatter={(value, name, props) => {
-                  return [`${name}: ${value}`, name];
-                }}
-              />
+              <Tooltip />
               <Legend />
               {yColumns.map((column, index) => (
                 <Scatter
@@ -662,8 +684,8 @@ const ChartBuilder = () => {
                 fill="#8884d8"
                 label={{ position: 'insideStart', fill: '#fff' }}
               />
+              <Tooltip />
               <Legend />
-              <RechartsTooltip />
             </RadialBarChart>
           );
         default:
@@ -677,7 +699,7 @@ const ChartBuilder = () => {
               <YAxis 
                 label={{ value: yAxisLabel, angle: -90, position: 'insideLeft' }}
               />
-              <RechartsTooltip />
+              <Tooltip />
               <Legend />
               {yColumns.map((column, index) => (
                 <Bar
@@ -798,6 +820,124 @@ const ChartBuilder = () => {
       </Box>
     );
   };
+
+  const renderAIInsightsSection = () => (
+    <Grid item xs={12}>
+      <Paper 
+        elevation={3} 
+        sx={{ 
+          p: 2, 
+          mb: 2,
+          background: 'linear-gradient(145deg, #f5f7fa 0%, #e4e8f0 100%)'
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <LightbulbIcon color="primary" sx={{ mr: 1 }} />
+          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+            AI Insights
+          </Typography>
+          <IconButton onClick={() => setShowInsights(!showInsights)}>
+            {showInsights ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+          </IconButton>
+        </Box>
+
+        <Collapse in={showInsights}>
+          <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+            {Object.keys(promptTemplates).map((type) => (
+              <Chip
+                key={type}
+                label={type.charAt(0).toUpperCase() + type.slice(1)}
+                onClick={() => {
+                  setSelectedPromptType(type);
+                  handleGetInsights(type);
+                }}
+                color={selectedPromptType === type ? 'primary' : 'default'}
+                variant={selectedPromptType === type ? 'filled' : 'outlined'}
+              />
+            ))}
+          </Stack>
+
+          <form onSubmit={handleCustomPrompt} style={{ marginBottom: '16px' }}>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <TextField
+                fullWidth
+                variant="outlined"
+                placeholder="Ask a custom question about your data..."
+                value={customPrompt}
+                onChange={(e) => setCustomPrompt(e.target.value)}
+                size="small"
+              />
+              <Tooltip title="Send prompt">
+                <IconButton 
+                  type="submit" 
+                  color="primary"
+                  disabled={!customPrompt.trim() || loading}
+                >
+                  <SendIcon />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </form>
+
+          {loading && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+              <CircularProgress />
+            </Box>
+          )}
+
+          {error && (
+            <Typography color="error" sx={{ mb: 2 }}>
+              {error}
+            </Typography>
+          )}
+
+          {insights && (
+            <Paper 
+              variant="outlined" 
+              sx={{ 
+                p: 2, 
+                mb: 2,
+                background: 'white',
+                borderRadius: 2
+              }}
+            >
+              <Typography variant="body1" sx={{ whiteSpace: 'pre-line' }}>
+                {insights}
+              </Typography>
+            </Paper>
+          )}
+
+          {promptHistory.length > 0 && (
+            <>
+              <Divider sx={{ my: 2 }} />
+              <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                Recent Insights
+              </Typography>
+              {promptHistory.map((item, index) => (
+                <Paper 
+                  key={index} 
+                  variant="outlined" 
+                  sx={{ 
+                    p: 2, 
+                    mb: 1,
+                    background: 'white',
+                    borderRadius: 2
+                  }}
+                >
+                  <Typography variant="caption" color="textSecondary">
+                    {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 1, whiteSpace: 'pre-line' }}>
+                    {item.response}
+                  </Typography>
+                </Paper>
+              ))}
+            </>
+          )}
+        </Collapse>
+      </Paper>
+    </Grid>
+  );
 
   return (
     <Container maxWidth={false} sx={{ mt: 4, mb: 4, px: 0 }}>
@@ -937,6 +1077,8 @@ const ChartBuilder = () => {
         <Grid item xs={12}>
           {renderAnalysis()}
         </Grid>
+
+        {renderAIInsightsSection()}
       </Grid>
     </Container>
   );
