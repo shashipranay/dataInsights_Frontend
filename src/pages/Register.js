@@ -22,7 +22,7 @@ import {
 } from '@mui/material';
 import axios from 'axios';
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 
 // Create axios instance with base URL
 const api = axios.create({
@@ -359,12 +359,11 @@ const Register = () => {
                         <Grid container justifyContent="center">
                             <Grid item>
                                 <Link
+                                    component={RouterLink}
                                     to="/login"
-                                    style={{
-                                        color: '#1976d2',
+                                    sx={{
+                                        color: 'primary.main',
                                         textDecoration: 'none',
-                                        fontSize: '0.875rem',
-                                        fontWeight: 500,
                                         '&:hover': {
                                             textDecoration: 'underline',
                                         },
